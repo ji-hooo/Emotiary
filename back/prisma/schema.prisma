@@ -1,0 +1,154 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String?
+  email        String   @unique
+  password     String?
+  description  String?
+  profileImage fileUpload[]
+  updatedAt    DateTime @default(now()) // 기본값 추가
+  createdAt    DateTime @default(now())
+  friendS      Friend[] @relation("UserFriendS")
+  friendR      Friend[] @relation("UserFriendR")
+  Diary        Diary[]
+
+  // 사용자와 Refresh Token 간의 일대다 관계 설정
+  refreshTokens RefreshToken[]
+
+  favorites   Favorite[]
+  comments    Comment[]
+  latestEmoji String?
+  isFriend    Boolean   @default(false)
+  alarmSetting String      @default("1")
+  chatMessage  ChatMessage[]
+
+  // 이메일인증
+  verificationToken String?
+  verificationTokenExpires DateTime?
+  isVerified Boolean?
+
+}
+
+model fileUpload{
+  id        Int      @id @default(autoincrement())
+  url       String
+  user      User?   @relation(fields: [userId], references: [id])
+  userId    String?
+  createdAt DateTime @default(now())
+}
+
+model diaryFileUpload {
+  id        Int      @id @default(autoincrement())
+  url       String
+  diary     Diary?  @relation(fields : [diaryId], references : [id])
+  diaryId   String?
+  deleteData String?
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 사용자와의 관계 정의
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Friend {
+  id             String  @id @default(uuid())
+  sentUser       User    @relation("UserFriendS", fields: [sentUserId], references: [id])
+  sentUserId     String
+  receivedUser   User    @relation("UserFriendR", fields: [receivedUserId], references: [id])
+  receivedUserId String
+  status         Boolean @default(false)
+
+  @@unique([sentUserId, receivedUserId])
+}
+
+model Diary {
+  id            String   @id @default(uuid())
+  author        User     @relation(fields: [authorId], references: [id])
+  authorId      String
+  createdDate   DateTime
+  title         String
+  content       String  @db.VarChar(1000)
+  is_public     String
+  emoji         String?
+  emotion       String?
+  filesUpload   diaryFileUpload[]
+  audioUrl      String?  @db.VarChar(1200)
+  favoriteCount Int      @default(value: 0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  favorites Favorite[]
+  comments  Comment[]
+
+  @@fulltext([title])  
+  @@fulltext([content])
+  @@fulltext([content, title])
+
+}
+
+model Favorite {
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  diary   Diary  @relation(fields: [diaryId], references: [id], onDelete: Cascade)
+  diaryId String
+  userId  String
+
+  @@id([diaryId, userId])
+}
+
+model Comment {
+  id            String    @id @default(uuid())
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId      String
+  diary         Diary     @relation(fields: [diaryId], references: [id], onDelete: Cascade)
+  diaryId       String
+  emoji         String?
+  content       String    @db.VarChar(100)
+  nestedComment String?
+  writeAi       String    @default(uuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  reply         Comment?  @relation("comment", fields: [nestedComment], references: [id], onDelete: Cascade)
+  reComment     Comment[] @relation("comment")
+
+  @@unique([diaryId, writeAi])
+}
+
+model Emoji {
+  id            Int     @id @default(autoincrement())
+  type          String
+  emotion       String?
+  audioUrl      String?  @db.VarChar(1200)
+}
+
+model ChatRoom {
+  id        String        @id @default(uuid())
+  message   ChatMessage[]
+  createdAt DateTime      @default(now())
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId     String
+  sendUser   User     @relation(fields: [sendUserId], references: [id], onDelete: Cascade)
+  sendUserId String
+  message    String
+  createdAt  DateTime @default(now())
+  isRead     Boolean  @default(false)
+}

@@ -1,0 +1,8 @@
+node_modules
+package-lock.js
+migrations
+dist
+.idea
+logs
+fileUpload
+.env
